@@ -1,54 +1,65 @@
-const SenderKeyState = require('./sender_key_state');
+const SenderKeySession = require("./sender_key_session");
+
+const SESSION_RECORD_VERSION = 'v1';
 
 class SenderKeyRecord {
-    MAX_STATES = 5;
-  
     constructor(serialized) {
-      this.senderKeyStates = [];
-  
-      if (serialized) {
-        const list = serialized;
-        for (let i = 0; i < list.length; i++) {
-          const structure = list[i];
-          this.senderKeyStates.push(
-            new SenderKeyState(null, null, null, null, null, null, structure)
-          );
+        /** @type {SenderKeySession[]} */
+        this.sessions = [];
+        this.version = SESSION_RECORD_VERSION;
+
+        if (serialized) {
+            if (serialized.version !== SESSION_RECORD_VERSION) {
+                throw new Error("Error migrating GroupSessionRecord")
+            }
+            const list = serialized._sessions;
+            for (let i = 0; i < list.length; i++) {
+                const structure = list[i];
+                this.sessions.push(SenderKeySession.deserialize(structure));
+            }
         }
-      }
     }
-  
+
     isEmpty() {
-      return this.senderKeyStates.length === 0;
+        return this.sessions.length === 0 
     }
-  
-    getSenderKeyState(keyId) {
-      if (!keyId && this.senderKeyStates.length) return this.senderKeyStates[0];
-      for (let i = 0; i < this.senderKeyStates.length; i++) {
-        const state = this.senderKeyStates[i];
-        if (state.getKeyId() === keyId) {
-          return state;
+
+    addSenderKeyState(keyId, chainCounter, chainKey, signatureKey) {
+        this.sessions.push(new SenderKeySession(keyId, chainCounter, chainKey, signatureKey));
+        if (this.sessions.length > 5) {
+            this.sessions = this.sessions.slice(1)
         }
-      }
-      throw new Error(`No keys for: ${keyId}`);
     }
-  
-    addSenderKeyState(id, iteration, chainKey, signatureKey) {
-      this.senderKeyStates.push(new SenderKeyState(id, iteration, chainKey, null, signatureKey));
+
+    getSession(keyId) {
+        for (let i = 0; i < this.sessions.length;  i++) {
+            const state = this.sessions[i]
+            if (state.keyId == keyId) {
+                return state
+            }
+        }
     }
-  
-    setSenderKeyState(id, iteration, chainKey, keyPair) {
-      this.senderKeyStates.length = 0;
-      this.senderKeyStates.push(new SenderKeyState(id, iteration, chainKey, keyPair));
+
+    /** @returns {SenderKeySession|undefined} */
+    getOpenSession() {
+        return this.sessions[this.sessions.length - 1]
     }
-  
+
+    deleteAllSessions() {
+        this.sessions = []
+    }
+
+
     serialize() {
-      const recordStructure = [];
-      for (let i = 0; i < this.senderKeyStates.length; i++) {
-        const senderKeyState = this.senderKeyStates[i];
-        recordStructure.push(senderKeyState.getStructure());
-      }
-      return recordStructure;
+        const _sessions = [];
+        for (const entry of this.sessions) {
+            _sessions.push(entry.serialize());
+        }
+        return {
+            _sessions,
+            version: this.version
+        };
     }
-  }
-  
-  module.exports = SenderKeyRecord;
+}
+
+module.exports = SenderKeyRecord
