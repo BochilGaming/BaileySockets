@@ -1,16 +1,22 @@
+const SenderChainKey = require("./sender_chain_key")
+const SenderSignatureKey = require("./sender_signature_key")
+
 class SenderKeySession {
     constructor(
         keyId,
         chainCounter,
         chainKey,
-        signatureKey 
+        signatureKeyPair,
+        signatureKeyPublic,
+        signatureKeyPrivate
     ) {
         this.keyId = keyId
-        this.signatureKey = signatureKey
-        this.chainKey = {
-            counter: chainCounter,
-            key: chainKey
+        if (signatureKeyPair) {
+            signatureKeyPublic = signatureKeyPair.public
+            signatureKeyPrivate = signatureKeyPair.private
         }
+        this.signatureKey = new SenderSignatureKey(signatureKeyPublic, signatureKeyPrivate)
+        this.chainKey = new SenderChainKey(chainCounter, chainKey)
         this.messageKeys = []
     }
 
@@ -18,33 +24,39 @@ class SenderKeySession {
         return this.toString();
     }
 
+    getKeyId() {
+        return this.keyId
+    }
+
+    getChainKey() {
+        return this.chainKey
+    }
+
+    getSignKey() {
+        return this.signatureKey
+    }
+
+    getMessageKey(index) {
+        return this.messageKeys[index]
+    }
+
     static deserialize(data) {
         const obj = new this();
         obj.keyId = data.keyId
-        obj.signatureKey = {
-            public: Buffer.from(data.signatureKey.public, 'base64'),
-            private: Buffer.from(data.signatureKey.private, 'base64')
+        obj.signatureKey = SenderSignatureKey.deserialize(data.signatureKey)
+        obj.chainKey = SenderChainKey.deserialize(data.chainKey)
+        if (Array.isArray(data.messageKeys)) {
+            obj.messageKeys = data.messageKeys.map((messageKey) => typeof messageKey === 'string' ? Buffer.from(messageKey, 'base64') : messageKey)
         }
-        obj.chainKey =  {
-            counter: data.chainKey.counter,
-            key: Buffer.from(data.chainKey.key, 'base64')
-        }
-        obj.messageKeys = data.messageKeys
         return obj
     }
 
     serialize() {
         return {
             keyId: this.keyId,
-            signatureKey: {
-                public: this.signatureKey.public.toString('base64'),
-                private: this.signatureKey.private.toString('base64'),
-            },
-            chainKey: {
-                counter: this.chainKey.counter,
-                key: this.chainKey.key.toString('base64')
-            },
-            messageKeys
+            signatureKey: this.signatureKey.serialize(),
+            chainKey: this.chainKey.serialize(),
+            messageKeys: this.messageKeys.map((messageKey) => messageKey ? messageKey.toString('base64') : messageKey)
         }
     }
 }

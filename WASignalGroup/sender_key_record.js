@@ -24,8 +24,8 @@ class SenderKeyRecord {
         return this.sessions.length === 0 
     }
 
-    addSenderKeyState(keyId, chainCounter, chainKey, signatureKey) {
-        this.sessions.push(new SenderKeySession(keyId, chainCounter, chainKey, signatureKey));
+    addSenderKeyState(keyId, chainCounter, chainKey, signKeyPair, signPubKey) {
+        this.sessions.push(new SenderKeySession(keyId, chainCounter, chainKey, signKeyPair, signPubKey));
         if (this.sessions.length > 5) {
             this.sessions = this.sessions.slice(1)
         }
@@ -34,7 +34,7 @@ class SenderKeyRecord {
     getSession(keyId) {
         for (let i = 0; i < this.sessions.length;  i++) {
             const state = this.sessions[i]
-            if (state.keyId == keyId) {
+            if (state.getKeyId() == keyId) {
                 return state
             }
         }

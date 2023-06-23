@@ -10,6 +10,7 @@ const CiphertextMessage = require("./ciphertext_message")
 
 class GroupCipher extends CiphertextMessage {
     constructor(senderKeyStore, senderKeyName) {
+        super()
         this.senderKeyStore = senderKeyStore;
         this.senderKeyName = senderKeyName;
     }
@@ -29,12 +30,12 @@ class GroupCipher extends CiphertextMessage {
             if (!senderKeySession) {
                 throw new Error("No session to encrypt message");
             }
-            const chainKeyCounter = senderKeySession.chainKey.counter
+            const chainKeyCounter = senderKeySession.getChainKey().getCounter()
             const counter = chainKeyCounter === 0 ? 0 : chainKeyCounter + 1
             this.fillMessageKeys(senderKeySession, counter)
-            const messageKey = senderKeySession.messageKeys[counter]
+            const messageKey = senderKeySession.getMessageKey(counter)
             const msg = protobufs.SenderKeyMessage.create()
-            msg.id = senderKeySession.keyId
+            msg.id = senderKeySession.getKeyId()
             msg.iteration = counter
             delete senderKeySession.messageKeys[counter]
             const keys = crypto.deriveSecrets(messageKey, Buffer.alloc(32), Buffer.from("WhisperGroup"))
@@ -71,13 +72,16 @@ class GroupCipher extends CiphertextMessage {
             /** @type {SenderKeyRecord} */
             const record = await this.senderKeyStore.loadSenderKey(this.senderKeyName)
             if (!record) {
-                throw new Error("No session found to decrypt message")
+                throw new Error("No session senderKeyRecord")
             }
             const senderKeySession = record.getSession(keyId)
-            const pubKey = Buffer.from(senderKeySession.signatureKey.public)
+            if (!senderKeySession) {
+                throw new Error("No session found to decrypt message")
+            }
+            const pubKey = Buffer.from(senderKeySession.getSignKey().getPublicKey())
             curve.verifySignature(pubKey, part, sign)
             this.fillMessageKeys(senderKeySession, msg.iteration)
-            const messageKey = senderKeySession.messageKeys[msg.iteration]
+            const messageKey = senderKeySession.getMessageKey(msg.iteration)
             if (!messageKey) {
                 throw new MessageCounterError("Message key not found. The counter was repeated or the key was not filled.")
             }
@@ -96,14 +100,14 @@ class GroupCipher extends CiphertextMessage {
      * @param {number} counter 
      */
     fillMessageKeys(senderKeySession, counter) {
-        const chainCounter = senderKeySession.chainKey.counter
+        const chainCounter = senderKeySession.getChainKey().getCounter()
         if (chainCounter > counter) {
             return
         }
         if (counter - chainCounter > 2000) {
             throw new Error("Over 2000 messages into the future!")
         }
-        const key = senderKeySession.chainKey.key;
+        const key = senderKeySession.getChainKey().getKey();
         if (!key) {
             throw new Error("Got invalid request to extend chain after it was already closed")
         }

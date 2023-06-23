@@ -18,6 +18,7 @@ class GroupSessionBuilder {
             senderKeyDistributionMessage.getId(),
             senderKeyDistributionMessage.getIteration(),
             senderKeyDistributionMessage.getChainKey(),
+            null,
             senderKeyDistributionMessage.getSignatureKey()
         )
         await this.senderKeyStore.storeSenderKey(senderKeyName, senderKeyRecord)
@@ -34,10 +35,10 @@ class GroupSessionBuilder {
         }
         const state = senderKeyRecord.getOpenSession()
         const senderKeyDistributionMessage = new SenderKeyDistributionMessage(
-            state.keyId,
-            state.chainKey.counter,
-            state.chainKey.key,
-            state.signatureKey.public
+            state.getKeyId(),
+            state.getChainKey().getCounter(),
+            state.getChainKey().getKey(),
+            state.getSignKey().getPublicKey()
         )
         await this.senderKeyStore.storeSenderKey(senderKeyName, senderKeyRecord)
         return senderKeyDistributionMessage
