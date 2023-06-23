@@ -48,7 +48,7 @@
     "cache-manager": "^5.2.2",
     "futoin-hkdf": "^1.5.1",
     "libphonenumber-js": "^1.10.20",
-    "libsignal": "https://github.com/adiwajshing/libsignal-node.git",
+    "libsignal": "github:bochilgaming/libsignal-node#patch-1",
     "music-metadata": "^7.12.3",
     "node-cache": "^5.1.2",
     "pino": "^7.0.0",
